@@ -1,0 +1,31 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo log in to Amazon ECR...
+      - aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin <account-number>.dkr.ecr.ap-south-1.amazonaws.com
+  build:
+    commands:
+      - echo Build started on `date`
+      - cd next_app/
+      - echo -e "NEXTAUTH_SECRET=$NEXTAUTH_SECRET\nNEXT_PUBLIC_AZURE_AD_CLIENT_ID=$NEXT_PUBLIC_AZURE_AD_CLIENT_ID\nNEXT_PUBLIC_AZURE_AD_CLIENT_SECRET=$NEXT_PUBLIC_AZURE_AD_CLIENT_SECRET\nNEXT_PUBLIC_AZURE_AD_TENANT_ID=$NEXT_PUBLIC_AZURE_AD_TENANT_ID\nNEXTAUTH_URL=$NEXTAUTH_URL\nNEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL" > .env
+      - cat .env
+      - echo Building the Docker image APP.
+      - docker build -t app .
+      - docker tag app:latest 4<account-number>.dkr.ecr.ap-south-1.amazonaws.com/app:latest
+      - cd ../fast_api
+      - echo -e "DB_USER=$DB_USER\nDB_PASS=$DB_PASS\nDB_NAME=$DB_NAME\nDB_HOST=$DB_HOST" > .env
+      - cat .env
+      - echo Building the Docker image FASTAPI.
+      - docker build -t fastapi .
+      - docker tag fastapi:latest <account-number>.dkr.ecr.ap-south-1.amazonaws.com/fastapi:latest
+      - cd ..
+  post_build:
+    commands:
+      - docker push <account-number>.dkr.ecr.ap-south-1.amazonaws.com/app:latest
+      - docker push <account-number>.dkr.ecr.ap-south-1.amazonaws.com/fastapi:latest
+      - printf '[{"name":"app","imageUri":"%s"}]' <account-number>.dkr.ecr.ap-south-1.amazonaws.com/app:latest > imagedefinitions.json
+
+artifacts:
+  files: imagedefinitions.json
